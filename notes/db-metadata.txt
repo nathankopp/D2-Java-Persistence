@@ -1,0 +1,140 @@
+/**
+ * 
+ */
+package db_tools;
+ 
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Iterator;
+ 
+/**
+ * @author brad
+ *
+ */
+public class Db2MetricsManager {
+ 
+    // jdbc Connection
+    private Connection conn = null;
+    private ArrayList<String> tblNames; 
+    
+    // Constructors
+    Db2MetricsManager(){
+        
+    }
+    Db2MetricsManager(Connection conn){
+        this.conn = conn;
+        tblNames = new ArrayList<String>();
+    }
+    // Methods
+    public ArrayList<String> getTableNames(){
+        return tblNames;
+    }
+    
+    public void readTableMetricsBySchema(String schema){
+        
+        Statement stmt = null;
+        try{
+            // Connect to DB and read in the table names
+            String[] types = {"TABLE"};
+            DatabaseMetaData dbmdt = conn.getMetaData();
+            ResultSet rst = dbmdt.getTables(null, schema, "%", types);
+            while(rst.next()){
+                tblNames.add(rst.getString("TABLE_NAME"));
+            }           
+            
+            // Got the table names so read the table metrics
+            ArrayList<String> columns = new ArrayList<String>();
+            Iterator<?> tnms = tblNames.iterator();
+            while(tnms.hasNext()){
+                String tableName = (String)tnms.next();
+                System.out.println("TABLE_NAME = " + tableName);
+                DatabaseMetaData dbmd = conn.getMetaData();
+                ResultSet rsc = dbmd.getColumns(null, schema, tableName, "%");
+                while(rsc.next()){
+                    String cn = rsc.getString("COLUMN_NAME");
+                    System.out.print("COLUMN_NAME = " + cn);
+                    String dt = rsc.getString("TYPE_NAME");
+                    System.out.print("\t\tTYPE_NAME = " + dt);
+                    int cs = rsc.getInt("COLUMN_SIZE");
+                    System.out.print("\t\tCOLUMN_SIZE = " + cs);
+                    System.out.println();
+                    /** TODO Create a UDT to hold the metadata and add to a collection */
+                }
+                System.out.println();
+            }
+            
+        } 
+        catch (SQLException sqle){
+            System.err.println(sqle.getMessage());
+        }
+        finally{
+            if(stmt != null){
+                try{stmt.close();}catch(Exception e){};
+            }
+        }
+    }
+ 
+}
+
+
+
+
+
+
+
+
+import java.io.*;
+import java.sql.*;
+
+public class DiscriptionTable{
+  public static void main(String[] args) {
+    System.out.println("See Description of Table Example!");
+    Connection con = null;
+    try{
+      Class.forName("com.mysql.jdbc.Driver");
+      con = DriverManager.getConnection
+("jdbc:mysql://localhost:3306/jdbctutorial","root","root");
+      try{
+        Statement st = con.createStatement();
+        BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
+        System.out.println("Enter table name:");
+        String table = bf.readLine();
+        ResultSet rs = st.executeQuery("DESCRIBE "+table);
+        ResultSetMetaData md = rs.getMetaData();
+        int col = md.getColumnCount();
+        for (int i = 1; i <= col; i++){
+          String col_name = md.getColumnName(i);
+          System.out.print(col_name+"\t");
+        }
+        System.out.println();
+        DatabaseMetaData dbm = con.getMetaData();
+        ResultSet rs1 = dbm.getColumns(null,"%",table,"%");
+        while (rs1.next()){
+          String col_name = rs1.getString("COLUMN_NAME");
+          String data_type = rs1.getString("TYPE_NAME");
+          int data_size = rs1.getInt("COLUMN_SIZE");
+          int nullable = rs1.getInt("NULLABLE");
+          System.out.print(col_name+"\t"+data_type+"("+data_size+")"+"\t");
+          if(nullable == 1){
+            System.out.print("YES\t");
+          }
+          else{
+            System.out.print("NO\t");
+          }
+          System.out.println();
+        }
+      }
+      catch (SQLException s){
+        System.out.println("SQL statement is not executed!");
+      }
+    }
+    catch (Exception e){
+      e.printStackTrace();
+    }
+  }
+}
+

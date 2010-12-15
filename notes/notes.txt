@@ -1,0 +1,10 @@
+File-Based Mutex
+http://download.oracle.com/javase/1.4.2/docs/api/java/nio/channels/FileLock.html
+http://stackoverflow.com/questions/320159/howto-synchronize-file-access-in-a-shared-folder-using-java-or-readwritelock-on
+http://stackoverflow.com/questions/484182/how-to-lock-a-file-on-different-application-levels
+http://sanchit6.wordpress.com/2009/08/19/file-semaphore-mutex/
+
+
+Database Metadata
+http://blog.codebeach.com/2008/12/database-metadata-with-jdbc.html
+http://forums.sun.com/thread.jspa?threadID=5286798
