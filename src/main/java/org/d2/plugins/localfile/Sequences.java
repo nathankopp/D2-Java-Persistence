@@ -34,8 +34,15 @@ public class Sequences
     public synchronized void setIfMore(String name, String value)
     {
         String value2 = seq.get(name);
-        if(value2==null || Long.parseLong(value2)<Long.parseLong(value))
-            set(name, value);
+        try
+        {
+            if(value2==null || Long.parseLong(value2)<Long.parseLong(value))
+                set(name, value);
+        }
+        catch(NumberFormatException e)
+        {
+            // do nothing!
+        }
     }
     
     public synchronized void set(String name, String value)

@@ -48,6 +48,8 @@ public interface D2
     
     void close();
     
+    void resetAllIndexLocks();
+    
     // ====================================================
     // getters/setters
     // ====================================================
@@ -57,6 +59,5 @@ public interface D2
 
     StorageFactory getDefaultStorageFactory();
     IndexerFactory getDefaultIndexerFactory();
-
 
 }

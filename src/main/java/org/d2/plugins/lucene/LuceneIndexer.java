@@ -32,6 +32,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.FuzzyQuery;
 import org.apache.lucene.search.IndexSearcher;
@@ -43,7 +44,6 @@ import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocCollector;
 import org.apache.lucene.search.WildcardQuery;
-import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.d2.Bucket;
 import org.d2.IdFinder;
@@ -437,6 +437,24 @@ public class LuceneIndexer implements Indexer
             throw Util.wrap(t);
         }
 
+    }
+
+    @Override
+    public void resetLocks()
+    {
+        
+        try
+        {
+            if ((new File(indexDir+"/write.lock").delete()))
+            {
+                System.out.println(indexDir+"/write.lock deleted");
+            }
+        }
+        catch(Exception e)
+        {
+            e.printStackTrace();
+        }
+        
     }
 
     

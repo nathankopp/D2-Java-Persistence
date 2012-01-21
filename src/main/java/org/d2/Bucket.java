@@ -15,11 +15,14 @@
  ******************************************************************************/
 package org.d2;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.d2.annotations.D2Entity;
 import org.d2.annotations.D2Indexed;
+import org.d2.context.D2Context;
 import org.d2.index.DocBuilder;
 import org.d2.index.DocBuilderWrapper;
 import org.d2.pluggable.Indexer;
@@ -46,10 +49,20 @@ public class Bucket
     private Indexer indexer;
     private DocBuilder docBuilder;
     private DocBuilderWrapper docBuilderWrapper;
+    
+    private List<UniqueConstraint> constraints = new ArrayList<UniqueConstraint>();
 
     public Bucket(Class<? extends Object> clazz)
     {
         this(clazz, null, null);
+    }
+    public Bucket(Class<? extends Object> clazz, UniqueConstraint... constraints)
+    {
+        this(clazz, null, null);
+        for(UniqueConstraint c : constraints)
+        {
+            this.constraints.add(c);
+        }
     }
     public Bucket(Class<? extends Object> clazz, StorageSystem system, Indexer  indexer)
     {
@@ -78,6 +91,11 @@ public class Bucket
         this.name = name;
         this.clazz = clazz;
         this.docBuilder = docBuilder;
+    }
+    
+    public void addConstratint(UniqueConstraint constraint)
+    {
+        constraints.add(constraint);
     }
     
     public synchronized ObjectInstantiator getInstantiator(Class clazz)
@@ -170,5 +188,17 @@ public class Bucket
     public StorageSystem getStorage()
     {
         return storage;
+    }
+    public List<UniqueConstraint> getConstraints()
+    {
+        return constraints;
+    }
+    public Object applyConstraints(Object obj, D2Context context)
+    {
+        for(UniqueConstraint c : constraints)
+        {
+            obj = c.applyConstraint(obj, context);
+        }
+        return obj;
     }
 }

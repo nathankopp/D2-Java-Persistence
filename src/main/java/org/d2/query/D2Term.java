@@ -56,4 +56,12 @@ public class D2Term extends D2QueryNode
     {
         this.type = type;
     }
+
+    @Override
+    public String toString()
+    {
+        return "D2Term [field=" + field + ", type=" + type + ", value=" + value + "]";
+    }
+    
+    
 }

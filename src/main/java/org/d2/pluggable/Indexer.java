@@ -30,4 +30,5 @@ public interface Indexer
     public DocBuilderAbstract getDocBuilder();
     public void close();
     public void deleteDocument(String id);
+    public void resetLocks();
 }

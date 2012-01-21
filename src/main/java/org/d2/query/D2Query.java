@@ -42,5 +42,16 @@ public class D2Query extends D2QueryNode
     {
         return filters;
     }
+    
+    @Override
+    public String toString()
+    {
+        String s = "";
+        for(D2QueryNode node : nodes)
+        {
+            s += getOccurs()+":"+node.toString()+" ";
+        }
+        return s.trim();
+    }
 
 }

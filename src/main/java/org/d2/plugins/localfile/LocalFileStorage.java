@@ -64,7 +64,8 @@ public class LocalFileStorage implements StorageSystem
         {
             try
             {
-                String numAsString = numToString(Long.valueOf(id));
+                //String numAsString = numToString(Long.valueOf(id));
+                String numAsString = id;
 
                 String fileName = dirStr + "/" + numAsString + ".txt";
                 
@@ -85,7 +86,8 @@ public class LocalFileStorage implements StorageSystem
     
     public void deleteDocument(String id)
     {
-        String numAsString = numToString(Long.valueOf(id));
+        String numAsString = id;
+        try { numToString(Long.valueOf(id)); } catch (NumberFormatException e ) {}
         String fileName = dirStr + "/" + numAsString + ".txt";
         File file = new File(fileName);
         file.delete();
@@ -100,7 +102,8 @@ public class LocalFileStorage implements StorageSystem
             try
             {
                 if(Util.isBlank(id)) throw new RuntimeException("id is blank");
-                String numAsString = numToString(Long.valueOf(id));
+                String numAsString = id;
+                try { numToString(Long.valueOf(id)); } catch (NumberFormatException e ) {}
                 
                 String fileName = dirStr + "/" + numAsString + ".txt";
                 File file = new File(fileName);
@@ -138,9 +141,10 @@ public class LocalFileStorage implements StorageSystem
                 for(File file : list)
                 {
                     String idStr = file.getName().substring(0,file.getName().lastIndexOf('.'));
-                    if(!idStr.equals("info"))
+                    if(!idStr.equals("info") && !idStr.equals("sequences"))
                     {
-                        String id  = Long.toString(Long.valueOf(idStr));
+                        //String id  = Long.toString(Long.valueOf(idStr));
+                        String id = idStr;
                         visitor.visit(id);
                     }
                 }

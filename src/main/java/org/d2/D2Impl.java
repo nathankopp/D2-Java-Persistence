@@ -79,6 +79,11 @@ public class D2Impl implements D2
     {
         XStream xs = new XStream();
         Bucket bucket = prepareXStreamAndFindBucket(obj.getClass(), xs, new Date(), context, operation);
+        
+        // check constraint here!
+        
+        obj = bucket.applyConstraints(obj, context);
+        
         assignId(obj, bucket.getClazz(), bucket);
         String xmlStr = xs.toXML(obj);
 
@@ -182,6 +187,7 @@ public class D2Impl implements D2
     
             bucket.getStorage().deleteDocument(id);
             bucket.getIndexer().deleteDocument(id);
+            context.removeFromCache(bucket, id);
         }
         catch (Exception e)
         {
@@ -280,7 +286,17 @@ public class D2Impl implements D2
         }
         if(xmlStr==null) return null;
         
-        if(object==null) object = clazz.cast(context.createAndRegisterStandin(bucket, clazz, id));
+        if(object==null)
+        {
+            object = clazz.cast(context.createAndRegisterStandin(bucket, clazz, id));
+        }
+        else
+        {
+            // skip reload if document is an exact match to what we had before
+            D2Metadata md = IdFinder.getMd(object);
+            if(md!=null && xmlStr.equals(md.getLoadedXml())) return object;
+        }
+        
         xs.fromXML(xmlStr, object);
         
         setMetadata(object, xmlStr, null, LoadStatus.LOADED, context);
@@ -312,7 +328,7 @@ public class D2Impl implements D2
     {
         if(bucket==null) throw new RuntimeException("bucket is null");
         if(bucket.getStorage()==null) throw new RuntimeException("bucket's storage system is null");
-        if(IdFinder.getMd(obj).isNew())
+        if(IdFinder.getMd(obj).isNew() && IdFinder.getId(obj)==null)
         {
             String id = bucket.getStorage().getSeqNextVal(bucketClass.getSimpleName());
             IdFinder.setId(obj, id);
@@ -411,6 +427,15 @@ public class D2Impl implements D2
         for(Bucket b : buckets)
         {
             b.getIndexer().close();
+        }
+    }
+
+    @Override
+    public void resetAllIndexLocks()
+    {
+        for(Bucket b : buckets)
+        {
+            b.getIndexer().resetLocks();
         }
     }
 

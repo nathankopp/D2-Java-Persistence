@@ -77,4 +77,11 @@ public class H2Indexer implements Indexer
         
     }
 
+    @Override
+    public void resetLocks()
+    {
+        // TODO Auto-generated method stub
+        
+    }
+
 }
