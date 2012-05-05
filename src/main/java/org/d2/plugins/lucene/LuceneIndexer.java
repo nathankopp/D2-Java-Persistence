@@ -48,10 +48,8 @@ import org.apache.lucene.search.WildcardQuery;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.LockObtainFailedException;
-import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.d2.Bucket;
-import org.d2.IdFinder;
 import org.d2.index.DocBuilderAbstract;
 import org.d2.pluggable.Indexer;
 import org.d2.query.D2NumericRangeTerm;
@@ -66,28 +64,25 @@ public class LuceneIndexer implements Indexer
 {
     private Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_36);
     private File indexDir;
-    private Directory index = null;
     
-    private IndexWriter writer;
     private Object writerLock = new Object();
     
-    private IndexReader reader;
-    private IndexSearcher searcher;
     private DocBuilderAbstract docBuilder;
+    
+    LuceneManager manager;
     
     private Thread writerCommitThread;
     private Boolean stopThread = false;
     private long commitDelay = 5000;
     
-    private boolean dirty = false;
-    private Object searcherLock = new Object();
+    private Directory index;
     
     public LuceneIndexer(String rootFolder, Bucket bucket) throws CorruptIndexException, LockObtainFailedException, IOException
     {
         indexDir = new File(rootFolder+"/"+bucket.getName()+"/index");
         indexDir.mkdirs();
         index = FSDirectory.open(indexDir);
-        openReaderAndSearcher();
+        manager = new LuceneManager(index);
         this.docBuilder = createDocBuilder();
         
 //        writerCommitThread = createWriterCommitThread();
@@ -99,40 +94,12 @@ public class LuceneIndexer implements Indexer
         return new LuceneDocBuilder();
     }
 
-    public void flushAndReopenWriter()
-    {
-        try
-        {
-            //writer.commit();
-            closeWriter();
-            closeReaderAndSearcher();
-            openReaderAndSearcher();
-        }
-        catch(Throwable t)
-        {
-            throw Util.wrap(t);
-        }
-        
-    }
-
-
     public synchronized void indexObject(Object obj)
     {
         try
         {
-            if(writer==null) openWriter();
             Document d = (Document)docBuilder.toDocument(obj);
-            writer.updateDocument(new Term("id",IdFinder.getId(obj).toString()), d);
-            
-            //writer.commit();  // NOTE: may cause performance issues
-            closeWriter();
-            
-//            // need to re-open the reader and searcher
-            
-            dirty = true;
-            
-            //closeReaderAndSearcher();
-            //openReaderAndSearcher();
+            manager.updateDocument(obj, d);
             
         }
         catch (CorruptIndexException e)
@@ -155,30 +122,22 @@ public class LuceneIndexer implements Indexer
             }
         }
     }
-    
+
     public List<String> findIdByQuery(D2Query query)
     {
+        LuceneReaderAndSearcher searcher = null;
         try
         {
-            if(dirty)
-            {
-                synchronized(searcherLock)
-                {
-                    reopenReaderAndSearcher();
-                    dirty=false;
-                }
-            }
-            
-            openReaderAndSearcher();
+            searcher = manager.getSearcher();
             List<String> pList = new ArrayList<String>();
             
             TopScoreDocCollector  collector = TopScoreDocCollector.create(20, true);
-            searcher.search(makeLuceneQuery(query), collector);
+            searcher.getSearcher().search(makeLuceneQuery(query), collector);
             ScoreDoc[] hits = collector.topDocs().scoreDocs;
     
             for (int i = 0; i < hits.length; i++)
             {
-                Document doc = searcher.doc(hits[i].doc);
+                Document doc = searcher.getSearcher().doc(hits[i].doc);
                 pList.add(doc.get("id"));
             }
             
@@ -187,6 +146,10 @@ public class LuceneIndexer implements Indexer
         catch (IOException e)
         {
             throw Util.wrap(e);
+        }
+        finally
+        {
+            manager.releaseSearcher(searcher);
         }
     }
 
@@ -202,14 +165,13 @@ public class LuceneIndexer implements Indexer
     {
         try
         {
-            if(writer!=null) writer.close();
-            if(searcher!=null) searcher.close();
-            if(reader!=null) reader.close();
+            manager.close();
+            manager = new LuceneManager(index);
             
             
             //writer = new IndexWriter(directory, analyzer, true, IndexWriter.MaxFieldLength.LIMITED);
             IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_36, analyzer);
-            IndexWriter writer = new IndexWriter(index, config);
+            IndexWriter writer = new IndexWriter(manager.getIndex(), config);
             for(Object obj : objList)
             {
                 Document d = (Document)docBuilder.toDocument(obj);
@@ -219,10 +181,8 @@ public class LuceneIndexer implements Indexer
             //writer.optimize();
             writer.commit();
             
-            writer.close();
-            writer = null;
-            
-            openReaderAndSearcher();
+            manager.close();
+            manager = new LuceneManager(index);
         }
         catch (CorruptIndexException e)
         {
@@ -328,8 +288,7 @@ public class LuceneIndexer implements Indexer
         try
         {
             stopThread = true;
-            closeReaderAndSearcher();
-            closeWriter();
+            manager.close();
             synchronized(stopThread) { stopThread.notifyAll(); }
         }
         catch(Exception e)
@@ -338,130 +297,41 @@ public class LuceneIndexer implements Indexer
         }
     }
     
-    public void closeReaderAndSearcher() throws IOException
-    {
-        synchronized(searcherLock)
-        {
-            if(searcher!=null) searcher.close();
-            if(reader!=null) reader.close();
-            searcher = null;
-            reader = null;
-        }
-    }
-    
-    private void reopenReaderAndSearcher() throws IOException, CorruptIndexException
-    {
-        synchronized(searcherLock)
-        {
-            closeReaderAndSearcher();
-            openReaderAndSearcher();
-        }
-    }
 
-    private void reopenJustSearcher() throws IOException, CorruptIndexException
-    {
-        synchronized(searcherLock)
-        {
-            synchronized(searcherLock)
-            {
-                if(searcher!=null) searcher.close();
-                searcher = new IndexSearcher(reader);
-            }
-        }
-    }
-
-    public void closeWriter() throws CorruptIndexException, IOException
-    {
-        synchronized(writerLock)
-        {
-            //if(writer!=null) writer.commit();
-            if(writer!=null) writer.close();
-            writer = null;
-        }
-    }
-    
-    private void openReaderAndSearcher() throws CorruptIndexException, IOException
-    {
-        synchronized(searcherLock)
-        {
-            if(searcher!=null) return;
-            if(reader!=null) closeReaderAndSearcher();
-            try
-            {
-                reader = IndexReader.open(index);
-                searcher = new IndexSearcher(reader);
-            }
-            catch(FileNotFoundException e)
-            {
-                rebuildIndex(new ArrayList<Object>());
-                reader = IndexReader.open(index);
-                searcher = new IndexSearcher(reader);
-            }
-        }
-    }
-
-    private void openWriter() throws CorruptIndexException, LockObtainFailedException, IOException
-    {
-        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_36, analyzer);
-        try
-        {
-            writer = new IndexWriter(index, config);
-
-        }
-        catch(FileNotFoundException e)
-        {
-            writer = new IndexWriter(index, config);
-        }
-    }
-    
-    
-    public IndexSearcher getSearcher()
-    {
-        try
-        {
-            if(searcher==null) openReaderAndSearcher();
-            return searcher;
-        }
-        catch(Throwable t)
-        {
-            throw new RuntimeException(t);
-        }
-    }
-
-    private Thread createWriterCommitThread()
-    {
-        return new Thread(new Runnable(){
-            @Override
-            public void run()
-            {
-                while(!stopThread)
-                {
-                    synchronized(stopThread)
-                    {
-                        synchronized(writerLock)
-                        {
-                            try
-                            {
-                                if(writer!=null) writer.commit();
-                            }
-                            catch(Exception e)
-                            {
-                                throw Util.wrap(e);
-                            }
-                        }
-                        try
-                        {
-                            stopThread.wait(commitDelay);
-                        }
-                        catch (InterruptedException e)
-                        {
-                            // do nothing... this is OK
-                        }
-                    }
-                }
-            }
-        });
-    }
+//    private Thread createWriterCommitThread()
+//    {
+//        return new Thread(new Runnable(){
+//            @Override
+//            public void run()
+//            {
+//                while(!stopThread)
+//                {
+//                    synchronized(stopThread)
+//                    {
+//                        synchronized(writerLock)
+//                        {
+//                            try
+//                            {
+//                                if(writer!=null) writer.commit();
+//                            }
+//                            catch(Exception e)
+//                            {
+//                                throw Util.wrap(e);
+//                            }
+//                        }
+//                        try
+//                        {
+//                            stopThread.wait(commitDelay);
+//                        }
+//                        catch (InterruptedException e)
+//                        {
+//                            // do nothing... this is OK
+//                        }
+//                    }
+//                }
+//            }
+//        });
+//    }
 
 
     public DocBuilderAbstract getDocBuilder()
@@ -474,8 +344,7 @@ public class LuceneIndexer implements Indexer
     {
         try
         {
-            writer.deleteDocuments(new Term("id", id));
-            writer.commit();
+            manager.getWriter().deleteDocuments(new Term("id", id));
         }
         catch(Throwable t)
         {
