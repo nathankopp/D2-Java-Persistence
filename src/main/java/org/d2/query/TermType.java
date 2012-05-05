@@ -16,5 +16,5 @@
 package org.d2.query;
 
 public enum TermType {
-    EXACT, PARSED, WILDCARD, FUZZY, PREFIX, REGEX
+    EXACT, PARSED, WILDCARD, FUZZY, PREFIX
 }

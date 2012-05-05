@@ -40,6 +40,9 @@ public class D2Impl implements D2
     private StorageFactory defaultStorageFactory;
     private IndexerFactory defaultIndexerFactory;
     
+    private long indexTime;
+    private long storageTime;
+    
     public D2Impl(StorageFactory defaultStorageFactory, IndexerFactory defaultIndexerFactory)
     {
         this.defaultStorageFactory = defaultStorageFactory;
@@ -91,12 +94,16 @@ public class D2Impl implements D2
         bucket.getStorage().acquireWriteLock(id);
         try
         {
+            long starta = System.currentTimeMillis();
             bucket.getStorage().saveDocument(id, xmlStr, now);
             setMetadata(obj, xmlStr, now, LoadStatus.LOADED, context);
+            storageTime += (System.currentTimeMillis()-starta);
             
             if(bucket.getIndexer()!=null)
             {
+                long startb = System.currentTimeMillis();
                 bucket.getIndexer().indexObject(obj);
+                indexTime += (System.currentTimeMillis()-startb);
             }
         }
         finally
@@ -437,6 +444,26 @@ public class D2Impl implements D2
         {
             b.getIndexer().resetLocks();
         }
+    }
+
+    public long getIndexTime()
+    {
+        return indexTime;
+    }
+
+    public void setIndexTime(long indexTime)
+    {
+        this.indexTime = indexTime;
+    }
+
+    public long getStorageTime()
+    {
+        return storageTime;
+    }
+
+    public void setStorageTime(long storageTime)
+    {
+        this.storageTime = storageTime;
     }
 
 }

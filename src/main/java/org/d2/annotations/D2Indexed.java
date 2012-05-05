@@ -28,5 +28,6 @@ public @interface D2Indexed
     boolean store() default false;
     boolean analyzed() default false;
     boolean findId() default false;
+    boolean asString() default false;
     String indexValueGetter() default "";
 }

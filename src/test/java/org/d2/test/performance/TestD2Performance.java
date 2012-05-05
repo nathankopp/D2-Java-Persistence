@@ -119,6 +119,11 @@ public class TestD2Performance extends Assert
         
         System.out.println("write total time: "+(end-start)+"ms ("+((end-start)/(float)count)+"ms/save)");
         
+        long storageTime = ((D2Impl)d2).getStorageTime();
+        long indexTime = ((D2Impl)d2).getIndexTime();
+        System.out.println("storage time: "+(storageTime)+"ms ("+((storageTime)/(float)count)+"ms/save)");
+        System.out.println("index time: "+(indexTime)+"ms ("+((indexTime)/(float)count)+"ms/save)");
+        
         assertTrue((end-start)<200000);
     }
 
@@ -149,39 +154,50 @@ public class TestD2Performance extends Assert
         assertTrue((end-start)<800000);
     }
     
+    
     public class WriteThreadProcess implements Runnable
     {
         public boolean done = false;
         public long time = 0;
+        public Throwable t;
         @Override
         public void run()
         {
-            D2Context context1 = new D2Context();
-            D2Dao<Person> dao1 = new D2Dao<Person>(d2, Person.class, context1);
-
-            D2Context context2 = new D2Context();
-            D2Dao<Person> dao2 = new D2Dao<Person>(d2, Person.class, context2);
-
-            Random r = new Random();
-            // ==========================================
-            long start = System.currentTimeMillis();
-            for(int i=0; i<count/2; i++)
+            try
             {
-                Person person = new Person(String.valueOf(r.nextInt()),String.valueOf(r.nextInt()));
-                dao1.save(person);
-                
-                Person person2 = dao2.loadOneForQuery(D2QueryBuilder.start().exact("firstName", person.getFirstName()).getQuery());
-                assertEquals(person2.getLastName(),person.getLastName());
+                D2Context context1 = new D2Context();
+                D2Dao<Person> dao1 = new D2Dao<Person>(d2, Person.class, context1);
+    
+                D2Context context2 = new D2Context();
+                D2Dao<Person> dao2 = new D2Dao<Person>(d2, Person.class, context2);
+    
+                Random r = new Random();
+                // ==========================================
+                long start = System.currentTimeMillis();
+                for(int i=0; i<count/2; i++)
+                {
+                    Person person = new Person(String.valueOf(r.nextInt()),String.valueOf(r.nextInt()));
+                    dao1.save(person);
+                    
+                    Person person2 = dao2.loadOneForQuery(D2QueryBuilder.start().exact("firstName", person.getFirstName()).getQuery());
+                    Assert.assertNotNull(person2);
+                    assertEquals(person2.getLastName(),person.getLastName());
+                }
+                long end = System.currentTimeMillis();
+                time = end-start;
+                done = true;
             }
-            long end = System.currentTimeMillis();
-            time = end-start;
-            done = true;
+            catch(Throwable t)
+            {
+                done = true;
+                this.t = t;
+                t.printStackTrace();
+            }
         }
     }
     
-    
     @Test
-    public void testWritePeformanceMultiThread()
+    public void testWritePeformanceMultiThread() throws Throwable
     {
         WriteThreadProcess p1 = new WriteThreadProcess();
         WriteThreadProcess p2 = new WriteThreadProcess();
@@ -209,6 +225,9 @@ public class TestD2Performance extends Assert
                 }
             }
         }
+        
+        if(p1.t!=null) throw p1.t;
+        if(p2.t!=null) throw p2.t;
         
 
         long end = System.currentTimeMillis();

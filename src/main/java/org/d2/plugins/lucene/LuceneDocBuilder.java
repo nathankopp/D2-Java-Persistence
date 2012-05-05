@@ -17,6 +17,7 @@ package org.d2.plugins.lucene;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.NumericField;
 import org.d2.index.DocBuilderAbstract;
 import org.nkts.util.Util;
 
@@ -26,10 +27,23 @@ public class LuceneDocBuilder extends DocBuilderAbstract
     public static final String MAGIC_BLANK_VALUE = "_blank_";
 
     @Override
-    public void addField(String fieldName, String field, Object doc, boolean store, boolean analyze)
+    public void addField(String fieldName, String value, Object doc, boolean store, boolean analyze)
     {
         Document d = (Document)doc;
-        if(!Util.isBlank(field)) d.add(new Field(fieldName, field, store?Field.Store.YES:Field.Store.NO, analyze?Field.Index.ANALYZED:Field.Index.NOT_ANALYZED_NO_NORMS));
+        if(!Util.isBlank(value)) d.add(new Field(fieldName, value, store?Field.Store.YES:Field.Store.NO, analyze?Field.Index.ANALYZED:Field.Index.NOT_ANALYZED_NO_NORMS));
+    }
+
+    @Override
+    public void addField(String fieldName, Number value, Object doc, boolean store, boolean analyze)
+    {
+        if(value==null) return;
+        Document d = (Document)doc;
+        NumericField field = new NumericField(fieldName, store?Field.Store.YES:Field.Store.NO, true);
+        if(Double.class.isAssignableFrom(value.getClass()))       field.setDoubleValue((Double)value);
+        else if(Long.class.isAssignableFrom(value.getClass()))    field.setLongValue((Long)value);
+        else if(Float.class.isAssignableFrom(value.getClass()))   field.setFloatValue((Float)value);
+        else if(Integer.class.isAssignableFrom(value.getClass())) field.setIntValue((Integer)value);
+        d.add(field);
     }
 
     @Override

@@ -28,6 +28,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
@@ -36,19 +37,24 @@ import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.FuzzyQuery;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.RangeQuery;
 import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.TopDocCollector;
+import org.apache.lucene.search.TermRangeQuery;
+import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.search.WildcardQuery;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.LockObtainFailedException;
+import org.apache.lucene.store.RAMDirectory;
+import org.apache.lucene.util.Version;
 import org.d2.Bucket;
 import org.d2.IdFinder;
 import org.d2.index.DocBuilderAbstract;
 import org.d2.pluggable.Indexer;
+import org.d2.query.D2NumericRangeTerm;
 import org.d2.query.D2Query;
 import org.d2.query.D2QueryNode;
 import org.d2.query.D2RangeTerm;
@@ -58,24 +64,29 @@ import org.nkts.util.Util;
 
 public class LuceneIndexer implements Indexer
 {
-    private Analyzer analyzer = new StandardAnalyzer();
+    private Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_36);
     private File indexDir;
+    private Directory index = null;
     
     private IndexWriter writer;
     private Object writerLock = new Object();
     
     private IndexReader reader;
-    private Searcher searcher;
+    private IndexSearcher searcher;
     private DocBuilderAbstract docBuilder;
     
     private Thread writerCommitThread;
     private Boolean stopThread = false;
     private long commitDelay = 5000;
     
+    private boolean dirty = false;
+    private Object searcherLock = new Object();
+    
     public LuceneIndexer(String rootFolder, Bucket bucket) throws CorruptIndexException, LockObtainFailedException, IOException
     {
         indexDir = new File(rootFolder+"/"+bucket.getName()+"/index");
         indexDir.mkdirs();
+        index = FSDirectory.open(indexDir);
         openReaderAndSearcher();
         this.docBuilder = createDocBuilder();
         
@@ -92,10 +103,9 @@ public class LuceneIndexer implements Indexer
     {
         try
         {
-            writer.commit();
+            //writer.commit();
             closeWriter();
-            if(searcher!=null) searcher.close();
-            if(reader!=null) reader.close();
+            closeReaderAndSearcher();
             openReaderAndSearcher();
         }
         catch(Throwable t)
@@ -114,26 +124,15 @@ public class LuceneIndexer implements Indexer
             Document d = (Document)docBuilder.toDocument(obj);
             writer.updateDocument(new Term("id",IdFinder.getId(obj).toString()), d);
             
-            writer.commit();  // NOTE: may cause performance issues
+            //writer.commit();  // NOTE: may cause performance issues
+            closeWriter();
             
 //            // need to re-open the reader and searcher
-            if(true)
-            {
-                if(searcher!=null) searcher.close();
-                if(reader!=null) reader.close();
-                openReaderAndSearcher();
-            }
-            else
-            {
-                searcher.close();
-                IndexReader reader2 = reader.reopen();
-                if(reader2!=reader)
-                {
-                    reader.close();
-                    reader = reader2;
-                }
-                searcher = new IndexSearcher(reader);
-            }
+            
+            dirty = true;
+            
+            //closeReaderAndSearcher();
+            //openReaderAndSearcher();
             
         }
         catch (CorruptIndexException e)
@@ -161,10 +160,19 @@ public class LuceneIndexer implements Indexer
     {
         try
         {
-            if(searcher==null) openReaderAndSearcher();
+            if(dirty)
+            {
+                synchronized(searcherLock)
+                {
+                    reopenReaderAndSearcher();
+                    dirty=false;
+                }
+            }
+            
+            openReaderAndSearcher();
             List<String> pList = new ArrayList<String>();
             
-            TopDocCollector collector = new TopDocCollector(20);
+            TopScoreDocCollector  collector = TopScoreDocCollector.create(20, true);
             searcher.search(makeLuceneQuery(query), collector);
             ScoreDoc[] hits = collector.topDocs().scoreDocs;
     
@@ -181,7 +189,7 @@ public class LuceneIndexer implements Indexer
             throw Util.wrap(e);
         }
     }
-    
+
     
     
     // ======================================================================
@@ -198,14 +206,17 @@ public class LuceneIndexer implements Indexer
             if(searcher!=null) searcher.close();
             if(reader!=null) reader.close();
             
-            writer = new IndexWriter(indexDir, analyzer, true, IndexWriter.MaxFieldLength.LIMITED);
+            
+            //writer = new IndexWriter(directory, analyzer, true, IndexWriter.MaxFieldLength.LIMITED);
+            IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_36, analyzer);
+            IndexWriter writer = new IndexWriter(index, config);
             for(Object obj : objList)
             {
                 Document d = (Document)docBuilder.toDocument(obj);
                 writer.addDocument(d);
             }
     
-            writer.optimize();
+            //writer.optimize();
             writer.commit();
             
             writer.close();
@@ -247,16 +258,11 @@ public class LuceneIndexer implements Indexer
                         case PREFIX:
                             lquery.add(new PrefixQuery(new Term(term.getField(), term.getValue())),  getLuceneOccur(node));
                             break;
-                        case REGEX:
-                            throw new RuntimeException("regex queries require upgrade to lucene 2.9.0");
-                            // requires lucene 2.9.0
-                            //lquery.add(new RegexQuery(new Term(term.getField(), term.getValue())),  BooleanClause.Occur.MUST);
-                            //break;
                         case WILDCARD:
                             lquery.add(new WildcardQuery(new Term(term.getField(), term.getValue())),  getLuceneOccur(node));
                             break;
                         case PARSED:
-                            QueryParser parser = new QueryParser(term.getField(), analyzer);
+                            QueryParser parser = new QueryParser(Version.LUCENE_36, term.getField(), analyzer);
                             Query luceneChild = parser.parse(term.getValue());
                             lquery.add(luceneChild,  getLuceneOccur(node));
                             break;
@@ -267,7 +273,15 @@ public class LuceneIndexer implements Indexer
                 else if (node instanceof D2RangeTerm)
                 {
                     D2RangeTerm term = (D2RangeTerm)node;
-                    lquery.add(new RangeQuery(new Term(term.getField(), term.getValue1()), new Term(term.getField(), term.getValue2()), true),  getLuceneOccur(node));
+                    lquery.add(new TermRangeQuery(term.getField(), term.getValue1(), term.getValue2(), term.isInclusive(), term.isInclusive()),  getLuceneOccur(node));
+                }
+                else if (node instanceof D2NumericRangeTerm)
+                {
+                    D2NumericRangeTerm term = (D2NumericRangeTerm)node;
+                    if(Double.class.isAssignableFrom(term.getType()))       lquery.add(NumericRangeQuery.newDoubleRange(term.getField(), (Double)term.getValue1(), (Double)term.getValue2(), term.isInclusive(), term.isInclusive()),  getLuceneOccur(node));
+                    else if(Long.class.isAssignableFrom(term.getType()))    lquery.add(NumericRangeQuery.newLongRange(term.getField(), (Long)term.getValue1(), (Long)term.getValue2(), term.isInclusive(), term.isInclusive()),  getLuceneOccur(node));
+                    else if(Float.class.isAssignableFrom(term.getType()))   lquery.add(NumericRangeQuery.newFloatRange(term.getField(), (Float)term.getValue1(), (Float)term.getValue2(), term.isInclusive(), term.isInclusive()),  getLuceneOccur(node));
+                    else if(Integer.class.isAssignableFrom(term.getType())) lquery.add(NumericRangeQuery.newIntRange(term.getField(), (Integer)term.getValue1(), (Integer)term.getValue2(), term.isInclusive(), term.isInclusive()),  getLuceneOccur(node));
                 }
                 else if (node instanceof D2Query)
                 {
@@ -324,19 +338,43 @@ public class LuceneIndexer implements Indexer
         }
     }
     
-    public void closeReaderAndSearcher() throws Exception
+    public void closeReaderAndSearcher() throws IOException
     {
-        if(searcher!=null) searcher.close();
-        if(reader!=null) reader.close();
-        searcher = null;
-        reader = null;
+        synchronized(searcherLock)
+        {
+            if(searcher!=null) searcher.close();
+            if(reader!=null) reader.close();
+            searcher = null;
+            reader = null;
+        }
     }
     
+    private void reopenReaderAndSearcher() throws IOException, CorruptIndexException
+    {
+        synchronized(searcherLock)
+        {
+            closeReaderAndSearcher();
+            openReaderAndSearcher();
+        }
+    }
+
+    private void reopenJustSearcher() throws IOException, CorruptIndexException
+    {
+        synchronized(searcherLock)
+        {
+            synchronized(searcherLock)
+            {
+                if(searcher!=null) searcher.close();
+                searcher = new IndexSearcher(reader);
+            }
+        }
+    }
+
     public void closeWriter() throws CorruptIndexException, IOException
     {
         synchronized(writerLock)
         {
-            if(writer!=null) writer.commit();
+            //if(writer!=null) writer.commit();
             if(writer!=null) writer.close();
             writer = null;
         }
@@ -344,33 +382,40 @@ public class LuceneIndexer implements Indexer
     
     private void openReaderAndSearcher() throws CorruptIndexException, IOException
     {
-        try
+        synchronized(searcherLock)
         {
-            reader = IndexReader.open(indexDir);
-            searcher = new IndexSearcher(reader);
-        }
-        catch(FileNotFoundException e)
-        {
-            rebuildIndex(new ArrayList<Object>());
-            reader = IndexReader.open(indexDir);
-            searcher = new IndexSearcher(reader);
+            if(searcher!=null) return;
+            if(reader!=null) closeReaderAndSearcher();
+            try
+            {
+                reader = IndexReader.open(index);
+                searcher = new IndexSearcher(reader);
+            }
+            catch(FileNotFoundException e)
+            {
+                rebuildIndex(new ArrayList<Object>());
+                reader = IndexReader.open(index);
+                searcher = new IndexSearcher(reader);
+            }
         }
     }
 
     private void openWriter() throws CorruptIndexException, LockObtainFailedException, IOException
     {
+        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_36, analyzer);
         try
         {
-            writer = new IndexWriter(indexDir, analyzer, false, IndexWriter.MaxFieldLength.LIMITED);
+            writer = new IndexWriter(index, config);
+
         }
         catch(FileNotFoundException e)
         {
-            writer = new IndexWriter(indexDir, analyzer, true, IndexWriter.MaxFieldLength.LIMITED);
+            writer = new IndexWriter(index, config);
         }
     }
     
     
-    public Searcher getSearcher()
+    public IndexSearcher getSearcher()
     {
         try
         {

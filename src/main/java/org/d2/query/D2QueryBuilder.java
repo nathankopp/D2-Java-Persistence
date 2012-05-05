@@ -74,11 +74,6 @@ public class D2QueryBuilder
         return add(new D2Term(field, value, TermType.PREFIX, occurs));
     }
     
-    public D2QueryBuilder regex(String field, String value, Occurs occurs)
-    {
-        return add(new D2Term(field, value, TermType.REGEX, occurs));
-    }
-    
     public D2QueryBuilder wildcard(String field, String value, Occurs occurs)
     {
         return add(new D2Term(field, value, TermType.WILDCARD, occurs));
@@ -104,11 +99,6 @@ public class D2QueryBuilder
     public D2QueryBuilder prefix(String field, String value)
     {
         return add(new D2Term(field, value, TermType.PREFIX, Occurs.SHOULD));
-    }
-    
-    public D2QueryBuilder regex(String field, String value)
-    {
-        return add(new D2Term(field, value, TermType.REGEX, Occurs.SHOULD));
     }
     
     public D2QueryBuilder wildcard(String field, String value)

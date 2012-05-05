@@ -28,7 +28,8 @@ import org.nkts.util.Util;
 public abstract class DocBuilderAbstract implements DocBuilder
 {
     public abstract void addIdField(String field, Object doc);
-    public abstract void addField(String fieldName, String field, Object doc, boolean store, boolean analyze);
+    public abstract void addField(String fieldName, String value, Object doc, boolean store, boolean analyze);
+    public abstract void addField(String fieldName, Number value, Object doc, boolean store, boolean analyze);
     public abstract void addStoredAnalyzedField(String fieldName, String field, Object doc);
     public abstract void addStoredUnanalyzedField(String fieldName, String field, Object doc);
     public abstract void addNonstoredAnalyzedField(String fieldName, String field, Object doc);
@@ -54,18 +55,27 @@ public abstract class DocBuilderAbstract implements DocBuilder
                     {
                         f.setAccessible(true);
                         Object val = f.get(obj);
+                        if(val==null) continue;
                         
                         D2Indexed a = f.getAnnotation(D2Indexed.class);
 
                         String fieldName = determineFieldName(f, a);
-                        String valStr = getValAsString(val, a);
                         
-                        addField(fieldName, valStr, doc, a.store(), a.analyzed());
+                        if(val instanceof Number && !a.asString())
+                        {
+                            addField(fieldName, (Number)val, doc, a.store(), a.analyzed());
+                        }
+                        else
+                        {
+                            String valStr = getValAsString(val, a);
+                            addField(fieldName, valStr, doc, a.store(), a.analyzed());
+                        }
                     }
                     else if (f.isAnnotationPresent(D2Id.class))
                     {
                         f.setAccessible(true);
                         Object val = f.get(obj);
+                        if(val==null) continue;
                         
                         String fieldName = f.getName();
                         String valStr = convertToSingleToken(val, null);
