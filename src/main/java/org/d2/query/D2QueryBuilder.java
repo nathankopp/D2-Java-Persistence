@@ -69,6 +69,11 @@ public class D2QueryBuilder
         return add(new D2RangeTerm(field, value1, value2, true, occurs));
     }
     
+    public D2QueryBuilder range(String field, Number value1, Number value2, Occurs occurs)
+    {
+        return add(new D2NumericRangeTerm(field, value1, value2, true, occurs));
+    }
+    
     public D2QueryBuilder prefix(String field, String value, Occurs occurs)
     {
         return add(new D2Term(field, value, TermType.PREFIX, occurs));
@@ -94,6 +99,11 @@ public class D2QueryBuilder
     public D2QueryBuilder range(String field, String value1, String value2)
     {
         return add(new D2RangeTerm(field, value1, value2, true, Occurs.SHOULD));
+    }
+    
+    public D2QueryBuilder range(String field, Number value1, Number value2)
+    {
+        return add(new D2NumericRangeTerm(field, value1, value2, true, Occurs.SHOULD));
     }
     
     public D2QueryBuilder prefix(String field, String value)

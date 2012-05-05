@@ -133,7 +133,7 @@ public class Bucket
         }
         catch(Exception e)
         {
-            Util.wrap(e);
+            throw Util.wrap(e);
         }
     }
     

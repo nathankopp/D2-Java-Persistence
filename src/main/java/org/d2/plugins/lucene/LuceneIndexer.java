@@ -77,7 +77,7 @@ public class LuceneIndexer implements Indexer
         indexDir.mkdirs();
         
         //index = FSDirectory.open(indexDir);
-        Directory fsDir = FSDirectory.open(new File("/path/to/index"));
+        Directory fsDir = FSDirectory.open(indexDir);
         index = new NRTCachingDirectory(fsDir, 5.0, 60.0);
         
         manager = new LuceneManager(index);
