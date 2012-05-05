@@ -16,7 +16,6 @@
 package org.d2.plugins.lucene;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -26,7 +25,6 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.CorruptIndexException;
-import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.Term;
@@ -36,7 +34,6 @@ import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.FuzzyQuery;
-import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
@@ -48,6 +45,7 @@ import org.apache.lucene.search.WildcardQuery;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.LockObtainFailedException;
+import org.apache.lucene.store.NRTCachingDirectory;
 import org.apache.lucene.util.Version;
 import org.d2.Bucket;
 import org.d2.index.DocBuilderAbstract;
@@ -81,7 +79,11 @@ public class LuceneIndexer implements Indexer
     {
         indexDir = new File(rootFolder+"/"+bucket.getName()+"/index");
         indexDir.mkdirs();
-        index = FSDirectory.open(indexDir);
+        
+        //index = FSDirectory.open(indexDir);
+        Directory fsDir = FSDirectory.open(new File("/path/to/index"));
+        index = new NRTCachingDirectory(fsDir, 5.0, 60.0);
+        
         manager = new LuceneManager(index);
         this.docBuilder = createDocBuilder();
         
@@ -171,6 +173,7 @@ public class LuceneIndexer implements Indexer
             
             //writer = new IndexWriter(directory, analyzer, true, IndexWriter.MaxFieldLength.LIMITED);
             IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_36, analyzer);
+            if(index instanceof NRTCachingDirectory) config.setMergeScheduler(((NRTCachingDirectory)index).getMergeScheduler());
             IndexWriter writer = new IndexWriter(manager.getIndex(), config);
             for(Object obj : objList)
             {

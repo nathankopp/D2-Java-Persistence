@@ -15,6 +15,7 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockObtainFailedException;
+import org.apache.lucene.store.NRTCachingDirectory;
 import org.apache.lucene.util.Version;
 import org.d2.IdFinder;
 import org.nkts.util.Util;
@@ -110,6 +111,7 @@ public class LuceneManager
     private void openWriter() throws CorruptIndexException, LockObtainFailedException, IOException
     {
         IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_36, analyzer);
+        if(index instanceof NRTCachingDirectory) config.setMergeScheduler(((NRTCachingDirectory)index).getMergeScheduler());
         try
         {
             writer = new IndexWriter(index, config);
