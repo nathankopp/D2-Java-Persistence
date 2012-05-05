@@ -63,15 +63,11 @@ public class LuceneIndexer implements Indexer
     private Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_36);
     private File indexDir;
     
-    private Object writerLock = new Object();
-    
     private DocBuilderAbstract docBuilder;
     
     LuceneManager manager;
     
-    private Thread writerCommitThread;
     private Boolean stopThread = false;
-    private long commitDelay = 5000;
     
     private Directory index;
     
@@ -86,9 +82,6 @@ public class LuceneIndexer implements Indexer
         
         manager = new LuceneManager(index);
         this.docBuilder = createDocBuilder();
-        
-//        writerCommitThread = createWriterCommitThread();
-//        writerCommitThread.start();
     }
 
     private DocBuilderAbstract createDocBuilder()
@@ -300,41 +293,6 @@ public class LuceneIndexer implements Indexer
         }
     }
     
-
-//    private Thread createWriterCommitThread()
-//    {
-//        return new Thread(new Runnable(){
-//            @Override
-//            public void run()
-//            {
-//                while(!stopThread)
-//                {
-//                    synchronized(stopThread)
-//                    {
-//                        synchronized(writerLock)
-//                        {
-//                            try
-//                            {
-//                                if(writer!=null) writer.commit();
-//                            }
-//                            catch(Exception e)
-//                            {
-//                                throw Util.wrap(e);
-//                            }
-//                        }
-//                        try
-//                        {
-//                            stopThread.wait(commitDelay);
-//                        }
-//                        catch (InterruptedException e)
-//                        {
-//                            // do nothing... this is OK
-//                        }
-//                    }
-//                }
-//            }
-//        });
-//    }
 
 
     public DocBuilderAbstract getDocBuilder()

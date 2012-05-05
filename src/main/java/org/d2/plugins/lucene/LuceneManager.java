@@ -27,13 +27,20 @@ public class LuceneManager
     private IndexWriter writer;
     private List<LuceneReaderAndSearcher> searchers = new ArrayList<LuceneReaderAndSearcher>();
     private LuceneReaderAndSearcher lastReader;
-    
+
+    private Thread writerCommitThread;
+    private boolean stopThread = false;
+    private Object threadLock = new Object();
+    private long commitDelay = 5000;
+
     public LuceneManager(Directory index) throws CorruptIndexException, LockObtainFailedException, IOException
     {
         this.index = index;
         openWriter();
         lastReader = new LuceneReaderAndSearcher(IndexReader.open(writer,true));
         searchers.add(lastReader);
+        writerCommitThread = createWriterCommitThread();
+        writerCommitThread.start();
     }
 
 
@@ -124,7 +131,13 @@ public class LuceneManager
     
     public void close() throws CorruptIndexException, IOException
     {
-        writer.close();
+        stopThread = true;
+        synchronized(threadLock)
+        {
+            writer.close();
+            writer = null;
+        }
+        threadLock.notifyAll();
         for(LuceneReaderAndSearcher searcher : searchers)
         {
             searcher.close();
@@ -150,6 +163,38 @@ public class LuceneManager
     }
 
 
+
+  private Thread createWriterCommitThread()
+  {
+      return new Thread(new Runnable(){
+          @Override
+          public void run()
+          {
+              while(!stopThread)
+              {
+                  synchronized(threadLock)
+                  {
+                      try
+                      {
+                          if(writer!=null) writer.commit();
+                      }
+                      catch(Exception e)
+                      {
+                          throw Util.wrap(e);
+                      }
+                      try
+                      {
+                          threadLock.wait(commitDelay);
+                      }
+                      catch (InterruptedException e)
+                      {
+                          // do nothing... this is OK
+                      }
+                  }
+              }
+          }
+      });
+  }
 
 
 

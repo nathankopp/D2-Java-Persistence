@@ -15,6 +15,7 @@
  ******************************************************************************/
 package org.d2;
 
+import java.io.Serializable;
 import java.util.Date;
 
 import org.d2.annotations.D2Ignore;
@@ -22,8 +23,10 @@ import org.d2.context.D2Context;
 
 
 @D2Ignore
-public class D2Metadata
+public class D2Metadata implements Serializable
 {
+    private static final long serialVersionUID = 1L;
+    
     protected LoadStatus status = LoadStatus.NEW;
     protected String dataVersion = null;
     protected Date saveTimestamp = null;
