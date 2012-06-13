@@ -433,6 +433,7 @@ public class D2Impl implements D2
     {
         for(Bucket b : buckets)
         {
+            if(b.getIndexer()==null) throw new RuntimeException("indexer is null "+b.getName());
             b.getIndexer().close();
         }
     }

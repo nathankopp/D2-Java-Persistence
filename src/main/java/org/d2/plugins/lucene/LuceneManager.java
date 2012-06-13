@@ -134,14 +134,15 @@ public class LuceneManager
         stopThread = true;
         synchronized(threadLock)
         {
-            writer.close();
+            for(LuceneReaderAndSearcher searcher : searchers)
+            {
+                searcher.close();
+            }
+            searchers.clear();
+            if(writer!=null) writer.close();
             writer = null;
         }
         threadLock.notifyAll();
-        for(LuceneReaderAndSearcher searcher : searchers)
-        {
-            searcher.close();
-        }
     }
     
     

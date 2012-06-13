@@ -89,13 +89,21 @@ public abstract class DocBuilderAbstract implements DocBuilder
                     {
                         m.setAccessible(true);
                         Object val = m.invoke(obj);
+                        if(val==null) continue;
 
                         D2Indexed a = m.getAnnotation(D2Indexed.class);
 
                         String fieldName = determineFieldName(m, a);
-                        String valStr = getValAsString(val, a);
                         
-                        addField(fieldName, valStr, doc, a.store(), a.analyzed());
+                        if(val instanceof Number && !a.asString())
+                        {
+                            addField(fieldName, (Number)val, doc, a.store(), a.analyzed());
+                        }
+                        else
+                        {
+                            String valStr = getValAsString(val, a);
+                            addField(fieldName, valStr, doc, a.store(), a.analyzed());
+                        }
                     }
                 }
                 clazz = clazz.getSuperclass();

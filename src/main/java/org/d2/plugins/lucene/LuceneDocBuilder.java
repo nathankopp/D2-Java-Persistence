@@ -39,6 +39,7 @@ public class LuceneDocBuilder extends DocBuilderAbstract
         if(value==null) return;
         Document d = (Document)doc;
         NumericField field = new NumericField(fieldName, store?Field.Store.YES:Field.Store.NO, true);
+        
         if(Double.class.isAssignableFrom(value.getClass()))       field.setDoubleValue((Double)value);
         else if(Long.class.isAssignableFrom(value.getClass()))    field.setLongValue((Long)value);
         else if(Float.class.isAssignableFrom(value.getClass()))   field.setFloatValue((Float)value);
