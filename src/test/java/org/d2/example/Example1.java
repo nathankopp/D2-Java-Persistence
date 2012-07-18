@@ -29,6 +29,7 @@ import org.d2.plugins.localfile.LocalFileStorageFactory;
 import org.d2.plugins.lucene.LuceneIndexerFactory;
 import org.d2.query.D2QueryBuilder;
 import org.d2.query.Occurs;
+import org.d2.serialize.XStreamSerializerFactory;
 import org.nkts.util.Util;
 
 
@@ -38,7 +39,7 @@ public class Example1
     {
         StorageFactory storage = new LocalFileStorageFactory("testdb");
         IndexerFactory indexer = new LuceneIndexerFactory("testdb");
-        D2 d2 = new D2Impl(storage, indexer);
+        D2 d2 = new D2Impl(storage, indexer, new XStreamSerializerFactory());
         d2.registerBucket(new Bucket(Person.class));
         
         D2Context context1 = new D2Context();

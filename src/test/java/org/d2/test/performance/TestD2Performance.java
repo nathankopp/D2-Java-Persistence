@@ -28,6 +28,7 @@ import org.d2.pluggable.StorageFactory;
 import org.d2.plugins.localfile.LocalFileStorageFactory;
 import org.d2.plugins.lucene.LuceneIndexerFactory;
 import org.d2.query.D2QueryBuilder;
+import org.d2.serialize.XStreamSerializerFactory;
 import org.d2.test.basic.Person;
 import org.nkts.util.Util;
 import org.testng.Assert;
@@ -51,7 +52,7 @@ public class TestD2Performance extends Assert
     {
         storage = new LocalFileStorageFactory("testdb");
         indexer = new LuceneIndexerFactory("testdb");
-        d2 = new D2Impl(storage, indexer);
+        d2 = new D2Impl(storage, indexer, new XStreamSerializerFactory());
         d2.registerBucket(new Bucket(Person.class));
     }
 

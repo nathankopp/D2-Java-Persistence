@@ -77,7 +77,7 @@ public class D2Dao<T> implements BasicDao<T>
     public List<T> loadForQuery(D2Query query)
     {
         Operation operation = new Operation();
-        Bucket bucket = d2.prepareXStreamAndFindBucket(clazz, null, null, context, operation);
+        Bucket bucket = d2.prepareSerializerAndFindBucket(clazz, null, null, context, operation);
         List<T> out = new ArrayList<T>();
         List<String> ids = bucket.getIndexer().findIdByQuery(query);
         for(String id : ids)

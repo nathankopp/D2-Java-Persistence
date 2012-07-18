@@ -26,14 +26,14 @@ import org.d2.pluggable.IndexerFactory;
 import org.d2.pluggable.StorageFactory;
 import org.d2.plugins.localfile.LocalFileStorageFactory;
 import org.d2.plugins.lucene.LuceneIndexerFactory;
+import org.d2.serialize.XStreamSerializerFactory;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 import org.nkts.util.Util;
-import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 
 
-@Test(groups={"slow"})
 public class TestD2Basic extends Assert
 {
     StorageFactory storage;
@@ -41,12 +41,12 @@ public class TestD2Basic extends Assert
     
     D2 d2;
     
-    @BeforeMethod
+    @Before
     public void setup()
     {
         storage = new LocalFileStorageFactory("testdb");
         indexer = new LuceneIndexerFactory("testdb");
-        d2 = new D2Impl(storage, indexer);
+        d2 = new D2Impl(storage, indexer, new XStreamSerializerFactory());
         d2.registerBucket(new Bucket(Person.class));
     }
 
@@ -160,7 +160,7 @@ public class TestD2Basic extends Assert
         
     }
 
-    @AfterMethod
+    @After
     public void cleanup()
     {
         try

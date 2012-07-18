@@ -1,0 +1,55 @@
+public class ArchiveIndex {
+      private IndexSearcher search;
+      private AtomicInteger activeSearches = new AtomicInteger(0);
+      private IndexWriter writer;
+      private AtomicInteger activeWrites = new AtomicInteger(0);
+
+      public List<Document> search( ... ) {
+          synchronized( this ) {
+              if( search != null && !search.getIndexReader().isCurrent() && activeSearches.get() == 0 ) {
+                 searcher.close();
+                 searcher = null;
+              }
+
+              if( search == null ) {
+                  searcher = new IndexSearcher(...);
+              }
+          }
+
+          activeSearches.increment();
+          try {
+              // do you searching
+          } finally {
+              activeSearches.decrement();
+          }
+          // do you searching
+      }
+
+
+      public void addDocuments( List<Document> docs ) {
+          synchronized( this ) {
+             if( writer == null ) {
+                 writer = new IndexWriter(...);
+             }
+          }
+          try {
+              activeWrites.incrementAndGet();
+              // do you writes here.
+          } finally {
+              synchronized( this ) {
+                  int writers = activeWrites.decrementAndGet();
+                  if( writers == 0 ) {
+                      writer.close();
+                      writer = null;
+                  }
+              }
+          }
+      }
+  }
+  
+
+http://stackoverflow.com/questions/8195166/in-lucene-how-can-i-find-out-if-the-indexsearcher-or-indexwriter-is-being-used  
+  
+So I have single class that I use for both readers and writers. Notice this class allows writing and reading at the same time, and multiple readers can search at the same time. The only sync'ing is the quick checks to see if you need to reopen the searcher/writer. I didn't synchronize on the method level which would only allow one reader/writer at a time which would be bad performance wise. If there are active searchers out there you can't drop the searcher. So if you get lots of readers coming in it just simply searches without the changes. Once it slims out the next lone searcher will reopen the dirty searcher. This might be great for lower volume sites where there will be a pause in traffic. It could still cause starvation (ie you're always reading older and older results). You could add logic to simply stop and reinitialize if the time since it was noticed dirty is older than X otherwise we lazy as it is now. That way you'll be guaranteed searches will never be older than X.
+
+Writers can be handled much in the same way. I tend to remember closing the writer periodically so the reader will notice its changed (commit it). I didn't do a very good job describing that, but it's much the same way of searching. If there are active writers out there you can't close the writer. If you're the last writer out the door close the writer. You get the idea.

@@ -23,15 +23,10 @@ import org.d2.annotations.D2Entity;
 import org.d2.context.D2Context;
 import org.d2.pluggable.IndexerFactory;
 import org.d2.pluggable.StorageFactory;
-import org.d2.serialize.D2AwareReflectionConverter;
-import org.d2.serialize.D2XmlEntityConverter;
-import org.d2.serialize.D2XmlIgnoreClassConverter;
-import org.d2.serialize.D2XmlVersionedConverter;
+import org.d2.serialize.D2Serializer;
+import org.d2.serialize.SerializerFactory;
 import org.nkts.util.StringVisitor;
 import org.nkts.util.Util;
-
-import com.thoughtworks.xstream.XStream;
-import com.thoughtworks.xstream.converters.Converter;
 
 public class D2Impl implements D2
 {
@@ -39,14 +34,16 @@ public class D2Impl implements D2
     
     private StorageFactory defaultStorageFactory;
     private IndexerFactory defaultIndexerFactory;
+    private SerializerFactory defaultSerializerFactory;
     
     private long indexTime;
     private long storageTime;
     
-    public D2Impl(StorageFactory defaultStorageFactory, IndexerFactory defaultIndexerFactory)
+    public D2Impl(StorageFactory defaultStorageFactory, IndexerFactory defaultIndexerFactory, SerializerFactory defaultSerializerFactory)
     {
         this.defaultStorageFactory = defaultStorageFactory;
         this.defaultIndexerFactory = defaultIndexerFactory;
+        this.defaultSerializerFactory = defaultSerializerFactory;
     }
     
     // ====================================================
@@ -80,15 +77,15 @@ public class D2Impl implements D2
 
     private void saveInternal(Object obj, D2Context context, Operation operation, Date now)
     {
-        XStream xs = new XStream();
-        Bucket bucket = prepareXStreamAndFindBucket(obj.getClass(), xs, new Date(), context, operation);
+        D2Serializer xs = defaultSerializerFactory.createSerializer();
+        Bucket bucket = prepareSerializerAndFindBucket(obj.getClass(), xs, new Date(), context, operation);
         
         // check constraint here!
         
         obj = bucket.applyConstraints(obj, context);
         
         assignId(obj, bucket.getClazz(), bucket);
-        String xmlStr = xs.toXML(obj);
+        String xmlStr = xs.serialize(obj);
 
         String id = IdFinder.getId(obj);
         bucket.getStorage().acquireWriteLock(id);
@@ -142,7 +139,7 @@ public class D2Impl implements D2
         final Operation operation = new Operation();
         final List<T> out = new ArrayList<T>();
         
-        final Bucket bucket = prepareXStreamAndFindBucket(clazz, null, null, context, operation);
+        final Bucket bucket = prepareSerializerAndFindBucket(clazz, null, null, context, operation);
         
         bucket.getStorage().eachId(new StringVisitor(){
             @Override
@@ -150,8 +147,8 @@ public class D2Impl implements D2
             {
                 // it's inefficient to prepare a new XS for each load... but right now we need to, because we must reset the
                 // converter for this type... so that it will unmarshall the root-level object properly 
-                XStream xs = new XStream();
-                prepareXStreamAndFindBucket(clazz, xs, null, context, operation);
+                D2Serializer xs = defaultSerializerFactory.createSerializer();
+                prepareSerializerAndFindBucket(clazz, xs, null, context, operation);
                 T obj = loadOneObject(clazz, id, xs, bucket, context, true, operation);
                 out.add(obj);
             }
@@ -163,7 +160,7 @@ public class D2Impl implements D2
     public void reindexAll(final Class<? extends Object> clazz, final D2Context context)
     {
         final Operation operation = new Operation();
-        final Bucket bucket = prepareXStreamAndFindBucket(clazz, null, null, context, operation);
+        final Bucket bucket = prepareSerializerAndFindBucket(clazz, null, null, context, operation);
         if(bucket.getIndexer()==null) throw new RuntimeException("Cannot index "+clazz.getSimpleName()+" because indexer is null");
 
         bucket.getStorage().eachId(new StringVisitor(){
@@ -172,8 +169,8 @@ public class D2Impl implements D2
             {
                 // it's inefficient to prepare a new XS for each load... but right now we need to, because we must reset the
                 // converter for this type... so that it will unmarshall the root-level object properly 
-                XStream xs = new XStream();
-                prepareXStreamAndFindBucket(clazz, xs, null, context, operation);
+                D2Serializer xs = defaultSerializerFactory.createSerializer();
+                prepareSerializerAndFindBucket(clazz, xs, null, context, operation);
                 Object obj = loadOneObject(clazz, id, xs, bucket, context, true, operation);
                 
                 bucket.getIndexer().indexObject(obj);
@@ -190,7 +187,7 @@ public class D2Impl implements D2
         Operation operation = new Operation();
         try
         {
-            Bucket bucket = prepareXStreamAndFindBucket(clazz, null, null, context, operation);
+            Bucket bucket = prepareSerializerAndFindBucket(clazz, null, null, context, operation);
     
             bucket.getStorage().deleteDocument(id);
             bucket.getIndexer().deleteDocument(id);
@@ -210,8 +207,8 @@ public class D2Impl implements D2
         Operation operation = new Operation();
         try
         {
-            XStream xs = new XStream();
-            Bucket bucket = prepareXStreamAndFindBucket(clazz, xs, null, context, operation);
+            D2Serializer xs = defaultSerializerFactory.createSerializer();
+            Bucket bucket = prepareSerializerAndFindBucket(clazz, xs, null, context, operation);
     
             return loadOneObject(clazz, id, xs, bucket, context, true, operation);
         }
@@ -226,8 +223,8 @@ public class D2Impl implements D2
         Operation operation = new Operation();
         try
         {
-            XStream xs = new XStream();
-            Bucket bucket = prepareXStreamAndFindBucket(clazz, xs, null, context, operation);
+            D2Serializer xs = defaultSerializerFactory.createSerializer();
+            Bucket bucket = prepareSerializerAndFindBucket(clazz, xs, null, context, operation);
     
             return getCachedObjectOrStandin(clazz, id, bucket, context, createStandin);
         }
@@ -237,7 +234,7 @@ public class D2Impl implements D2
         }
     }
 
-    private <T> T loadOneObject(Class<T> clazz, String id, XStream xs, Bucket bucket, D2Context context, boolean forceReload, Operation operation)
+    private <T> T loadOneObject(Class<T> clazz, String id, D2Serializer xs, Bucket bucket, D2Context context, boolean forceReload, Operation operation)
     {
         T object = getCachedObjectOrStandin(clazz, id, bucket, context, false);
         
@@ -268,8 +265,8 @@ public class D2Impl implements D2
         String id = IdFinder.getId(obj);
         try
         {
-            XStream xs = new XStream();
-            Bucket bucket = prepareXStreamAndFindBucket(clazz, xs, null, context, operation);
+            D2Serializer xs = defaultSerializerFactory.createSerializer();
+            Bucket bucket = prepareSerializerAndFindBucket(clazz, xs, null, context, operation);
     
             loadOneObject(clazz, id, xs, bucket, context, true, operation);
         }
@@ -279,7 +276,7 @@ public class D2Impl implements D2
         }
     }
 
-    private <T> T realizeObject(Class<T> clazz, String id, XStream xs, Bucket bucket, D2Context context, T object)
+    private <T> T realizeObject(Class<T> clazz, String id, D2Serializer xs, Bucket bucket, D2Context context, T object)
     {
         String xmlStr = null;
         bucket.getStorage().acquireReadLock(id);
@@ -304,7 +301,7 @@ public class D2Impl implements D2
             if(md!=null && xmlStr.equals(md.getLoadedXml())) return object;
         }
         
-        xs.fromXML(xmlStr, object);
+        xs.deserialize(xmlStr, object);
         
         setMetadata(object, xmlStr, null, LoadStatus.LOADED, context);
         return object;
@@ -346,48 +343,25 @@ public class D2Impl implements D2
         }
     }
 
-    /* (non-Javadoc)
-     * @see com.pitcru.persistence.d2.D2#prepareXStreamAndFindBucket(java.lang.Class, com.thoughtworks.xstream.XStream)
-     */
-    public Bucket prepareXStreamAndFindBucket(Class<?> clazz, XStream xs, Date now, D2Context context, Operation operation)
+    public Bucket prepareSerializerAndFindBucket(Class<?> clazz, D2Serializer xs, Date now, D2Context context, Operation operation)
     {
-        if(xs!=null)
-        {
-            Converter normalObjectConverter = xs.getConverterLookup().lookupConverterForType(Object.class);
-            xs.registerConverter(new D2AwareReflectionConverter(xs.getMapper(), xs.getReflectionProvider()));
-            xs.registerConverter(new D2XmlVersionedConverter(normalObjectConverter));
-            xs.registerConverter(new D2XmlIgnoreClassConverter());
-        }
-        
         Bucket thisBucket = null;
         for(Bucket bucket : buckets)
         {
             if(bucket.getClazz().isAssignableFrom(clazz))
             {
-                if(xs!=null)
-                {
-                    Converter delegateConverter = xs.getConverterLookup().lookupConverterForType(bucket.getClazz());
-                    xs.registerConverter(new D2XmlEntityConverter(this, bucket.getClazz(), delegateConverter, now, context, operation));
-                    xs.alias(getAlias(clazz), clazz);
-                }
+                if(xs!=null) xs.prepareForRootBucket(clazz, this, now, context, operation, bucket);
                 thisBucket = bucket;
             }
             else
             {
-                if(xs!=null)
-                {
-                    Converter delegateConverter = xs.getConverterLookup().lookupConverterForType(bucket.getClazz());
-                    xs.registerConverter(new D2XmlEntityConverter(this, bucket.getClazz(), delegateConverter, context, operation));
-//                    xs.registerConverter(bucket.getConverter());
-                    xs.alias(getAlias(clazz), clazz);
-                }
+                if(xs!=null) xs.prepareForNonRootBucket(this, context, operation, bucket);
             }
         }
         return thisBucket;
     }
-    
 
-    private String getAlias(Class<?> clazz)
+    public String getAlias(Class<?> clazz)
     {
         D2Entity entityAnnotation = clazz.getAnnotation(D2Entity.class);
         return entityAnnotation==null?clazz.getName():entityAnnotation.alias();

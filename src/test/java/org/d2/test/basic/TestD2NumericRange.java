@@ -29,6 +29,7 @@ import org.d2.plugins.localfile.LocalFileStorageFactory;
 import org.d2.plugins.lucene.LuceneIndexerFactory;
 import org.d2.query.D2QueryBuilder;
 import org.d2.query.Occurs;
+import org.d2.serialize.XStreamSerializerFactory;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -48,7 +49,7 @@ public class TestD2NumericRange extends Assert
     {
         storage = new LocalFileStorageFactory("testdb");
         indexer = new LuceneIndexerFactory("testdb");
-        d2 = new D2Impl(storage, indexer);
+        d2 = new D2Impl(storage, indexer, new XStreamSerializerFactory());
         d2.registerBucket(new Bucket(Location.class));
     }
 

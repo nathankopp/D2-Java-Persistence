@@ -26,6 +26,7 @@ import org.d2.pluggable.IndexerFactory;
 import org.d2.pluggable.StorageFactory;
 import org.d2.plugins.localfile.LocalFileStorageFactory;
 import org.d2.plugins.lucene.LuceneIndexerFactory;
+import org.d2.serialize.XStreamSerializerFactory;
 import org.nkts.util.Util;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
@@ -46,7 +47,7 @@ public class TestD2Cascade extends Assert
     {
         storage = new LocalFileStorageFactory("testdb");
         indexer = new LuceneIndexerFactory("testdb");
-        d2 = new D2Impl(storage, indexer);
+        d2 = new D2Impl(storage, indexer, new XStreamSerializerFactory());
         d2.registerBucket(new Bucket(Person2.class));
     }
 

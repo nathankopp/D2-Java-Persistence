@@ -21,8 +21,7 @@ import java.util.List;
 import org.d2.context.D2Context;
 import org.d2.pluggable.IndexerFactory;
 import org.d2.pluggable.StorageFactory;
-
-import com.thoughtworks.xstream.XStream;
+import org.d2.serialize.D2Serializer;
 
 public interface D2
 {
@@ -44,7 +43,7 @@ public interface D2
 
     void reindexAll(Class<? extends Object> clazz, D2Context context);
 
-    Bucket prepareXStreamAndFindBucket(Class<?> clazz, XStream xs, Date now, D2Context context, Operation operation);
+    Bucket prepareSerializerAndFindBucket(Class<?> clazz, D2Serializer ser, Date now, D2Context context, Operation operation);
     
     void close();
     
