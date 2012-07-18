@@ -22,9 +22,11 @@ import org.d2.D2Metadata;
 import org.d2.annotations.D2Entity;
 import org.d2.annotations.D2Id;
 import org.d2.annotations.D2Indexed;
+import org.d2.annotations.D2Versioned;
 
 
 @D2Entity( alias="Person", bucketName="people")
+@D2Versioned(version="1.0.0")
 public class Person
 {
     protected D2Metadata md;

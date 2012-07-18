@@ -13,29 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
-package org.d2.serialize;
+package org.d2.plugins.xstream.converters;
 
 import java.lang.reflect.Field;
 
 import org.d2.annotations.D2Aware;
 import org.d2.annotations.D2Entity;
+import org.d2.annotations.D2Versioned;
 
 import com.thoughtworks.xstream.converters.MarshallingContext;
 import com.thoughtworks.xstream.converters.UnmarshallingContext;
 import com.thoughtworks.xstream.converters.reflection.AbstractReflectionConverter;
 import com.thoughtworks.xstream.converters.reflection.ReflectionProvider;
+import com.thoughtworks.xstream.io.HierarchicalStreamReader;
+import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 import com.thoughtworks.xstream.mapper.Mapper;
 
-public class D2AwareReflectionConverter extends AbstractReflectionConverter
+public class D2EntityReflectionConverter extends AbstractReflectionConverter
 {
     public static final String CURRENT_FIELD_KEY = "currentField";
 
-    public D2AwareReflectionConverter(Mapper mapper, ReflectionProvider reflectionProvider)
+    public D2EntityReflectionConverter(Mapper mapper, ReflectionProvider reflectionProvider)
     {
         super(mapper, reflectionProvider);
     }
     
-    @Override
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     public boolean canConvert(Class type)
     {
         if(type.isAnnotationPresent(D2Aware.class) || type.isAnnotationPresent(D2Entity.class)) return true;
@@ -50,6 +53,7 @@ public class D2AwareReflectionConverter extends AbstractReflectionConverter
     }
     
     @Override
+    @SuppressWarnings({ "rawtypes" })
     protected Object unmarshallField(UnmarshallingContext context, Object result, Class type, Field field)
     {
         context.put(CURRENT_FIELD_KEY, field);

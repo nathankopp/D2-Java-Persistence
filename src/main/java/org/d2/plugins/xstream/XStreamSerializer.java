@@ -1,4 +1,4 @@
-package org.d2.serialize;
+package org.d2.plugins.xstream;
 
 import java.util.Date;
 
@@ -6,6 +6,10 @@ import org.d2.Bucket;
 import org.d2.D2Impl;
 import org.d2.Operation;
 import org.d2.context.D2Context;
+import org.d2.plugins.xstream.converters.D2EntityReflectionConverter;
+import org.d2.plugins.xstream.converters.D2IgnoreClassConverter;
+import org.d2.plugins.xstream.converters.D2XmlEntityConverter;
+import org.d2.serialize.D2Serializer;
 
 import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.converters.Converter;
@@ -16,10 +20,8 @@ public class XStreamSerializer implements D2Serializer
     
     public XStreamSerializer()
     {
-        Converter normalObjectConverter = this.xs.getConverterLookup().lookupConverterForType(Object.class);
-        this.xs.registerConverter(new D2AwareReflectionConverter(this.xs.getMapper(), this.xs.getReflectionProvider()));
-        this.xs.registerConverter(new D2XmlVersionedConverter(normalObjectConverter));
-        this.xs.registerConverter(new D2XmlIgnoreClassConverter());
+        this.xs.registerConverter(new D2EntityReflectionConverter(this.xs.getMapper(), this.xs.getReflectionProvider()));
+        this.xs.registerConverter(new D2IgnoreClassConverter());
     }
 
     public String serialize(Object obj)

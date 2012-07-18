@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
-package org.d2.serialize;
+package org.d2.plugins.xstream.converters;
 
 import org.d2.annotations.D2Ignore;
 
@@ -23,13 +23,14 @@ import com.thoughtworks.xstream.converters.UnmarshallingContext;
 import com.thoughtworks.xstream.io.HierarchicalStreamReader;
 import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 
-public class D2XmlIgnoreClassConverter implements Converter
+public class D2IgnoreClassConverter implements Converter
 {
-    public D2XmlIgnoreClassConverter()
+    public D2IgnoreClassConverter()
     {
         super();
     }
 
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     public boolean canConvert(Class clazz)
     {
         if (clazz.isAnnotationPresent(D2Ignore.class)) return true;

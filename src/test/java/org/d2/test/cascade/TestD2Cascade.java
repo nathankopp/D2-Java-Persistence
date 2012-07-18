@@ -26,7 +26,7 @@ import org.d2.pluggable.IndexerFactory;
 import org.d2.pluggable.StorageFactory;
 import org.d2.plugins.localfile.LocalFileStorageFactory;
 import org.d2.plugins.lucene.LuceneIndexerFactory;
-import org.d2.serialize.XStreamSerializerFactory;
+import org.d2.plugins.xstream.XStreamSerializerFactory;
 import org.nkts.util.Util;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;

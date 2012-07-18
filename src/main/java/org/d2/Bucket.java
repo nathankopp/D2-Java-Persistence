@@ -27,7 +27,7 @@ import org.d2.index.DocBuilder;
 import org.d2.index.DocBuilderWrapper;
 import org.d2.pluggable.Indexer;
 import org.d2.pluggable.StorageSystem;
-import org.d2.serialize.D2XmlEntityConverter;
+import org.d2.plugins.xstream.converters.D2XmlEntityConverter;
 import org.nkts.util.Util;
 import org.objenesis.Objenesis;
 import org.objenesis.ObjenesisStd;
