@@ -27,7 +27,6 @@ import org.d2.index.DocBuilder;
 import org.d2.index.DocBuilderWrapper;
 import org.d2.pluggable.Indexer;
 import org.d2.pluggable.StorageSystem;
-import org.d2.plugins.xstream.converters.D2XmlEntityConverter;
 import org.nkts.util.Util;
 import org.objenesis.Objenesis;
 import org.objenesis.ObjenesisStd;
@@ -40,7 +39,6 @@ public class Bucket
     
     private String name;
     private Class<? extends Object> clazz;
-    private D2XmlEntityConverter converter;
 //    protected Map<String, Object> cache = new SoftHashMap<String, Object>();
     
     private Map<Class, ObjectInstantiator> instantiators = new HashMap<Class, ObjectInstantiator>();
@@ -161,14 +159,6 @@ public class Bucket
     public void setClazz(Class<?> clazz)
     {
         this.clazz = clazz;
-    }
-    public D2XmlEntityConverter getConverter()
-    {
-        return converter;
-    }
-    public void setConverter(D2XmlEntityConverter converter)
-    {
-        this.converter = converter;
     }
     public Indexer getIndexer()
     {

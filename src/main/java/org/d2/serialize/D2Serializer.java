@@ -17,6 +17,6 @@ public interface D2Serializer
     public abstract void prepareForRootBucket(Class<?> clazz, D2Impl d2Impl, Date now, D2Context context,
                                               Operation operation, Bucket bucket);
 
-    public abstract void prepareForNonRootBucket(D2Impl d2Impl, D2Context context, Operation operation, Bucket bucket);
+    public abstract void prepareForNonRootBucket(D2Impl d2Impl, Date now, D2Context context, Operation operation, Bucket bucket);
 
 }

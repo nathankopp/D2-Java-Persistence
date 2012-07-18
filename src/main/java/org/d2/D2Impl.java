@@ -73,9 +73,15 @@ public class D2Impl implements D2
 
         context = useObjectContextIfPossible(obj, context);
         saveInternal(obj, context, operation, now);
+        
+        Object objectToSave;
+        while((objectToSave = operation.pollCascadeSave())!=null)
+        {
+            saveInternal(objectToSave, context, operation, now);
+        }
     }
 
-    private void saveInternal(Object obj, D2Context context, Operation operation, Date now)
+    public void saveInternal(Object obj, D2Context context, Operation operation, Date now)
     {
         D2Serializer xs = defaultSerializerFactory.createSerializer();
         Bucket bucket = prepareSerializerAndFindBucket(obj.getClass(), xs, new Date(), context, operation);
@@ -109,12 +115,6 @@ public class D2Impl implements D2
         }
         
         context.registerInstanceToCache(bucket, obj);
-
-        Object objectToSave;
-        while((objectToSave = operation.pollCascadeSave())!=null)
-        {
-            saveInternal(objectToSave, context, operation, now);
-        }
     }
 
     private void setMetadata(Object obj, String xml, Date now, LoadStatus status, D2Context context)
@@ -234,6 +234,7 @@ public class D2Impl implements D2
         }
     }
 
+    @SuppressWarnings("unchecked")
     private <T> T loadOneObject(Class<T> clazz, String id, D2Serializer xs, Bucket bucket, D2Context context, boolean forceReload, Operation operation)
     {
         T object = getCachedObjectOrStandin(clazz, id, bucket, context, false);
@@ -261,7 +262,7 @@ public class D2Impl implements D2
 
     private void realizeObject(Object obj, D2Context context, Operation operation)
     {
-        Class clazz = obj.getClass();
+        Class<?> clazz = obj.getClass();
         String id = IdFinder.getId(obj);
         try
         {
@@ -328,7 +329,7 @@ public class D2Impl implements D2
      * @param bucketClass
      * @param bucket
      */
-    private void assignId(Object obj, Class bucketClass, Bucket bucket)
+    private void assignId(Object obj, @SuppressWarnings("rawtypes") Class bucketClass, Bucket bucket)
     {
         if(bucket==null) throw new RuntimeException("bucket is null");
         if(bucket.getStorage()==null) throw new RuntimeException("bucket's storage system is null");
@@ -355,7 +356,7 @@ public class D2Impl implements D2
             }
             else
             {
-                if(xs!=null) xs.prepareForNonRootBucket(this, context, operation, bucket);
+                if(xs!=null) xs.prepareForNonRootBucket(this, now, context, operation, bucket);
             }
         }
         return thisBucket;
